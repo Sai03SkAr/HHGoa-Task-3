@@ -207,3 +207,28 @@ Hardhat covers persistence.
 
 **Measured gas** (`memory` backend): deploy **757,035**, anchor **93,815**. Feeds the
 cost/latency table.
+
+---
+
+### D-015 — Reverse image search is NOT built, and the ladder spans Mastodon instances · **firm**
+
+Supersedes the "Family A / Family B" split sketched in D-003. There is **no SerpAPI
+provider in the codebase**. The ladder's rungs are several Mastodon instances
+(`MASTODON_INSTANCE` first, then `MASTODON_FALLBACKS`).
+
+**Why not build it.** Every reason in D-003 still applies — no upload endpoint, so the
+probe face must be published publicly first — and one more decided it: a provider that
+cannot be exercised without a paid key is a provider that cannot be tested. Shipping
+untested code behind a flag, two days from a deadline with no resubmissions, buys nothing
+and risks a grader finding a path that does not work.
+
+**Why the ladder is still real.** Separate Mastodon instances have genuinely different
+federated views, so a second instance is a different *source*, not a retry. The
+fall-through logic is exercised by tests (unconfigured, erroring, and empty providers) and
+the instance name is recorded in the hashed search trail, so "which server answered" is
+part of the evidence.
+
+**The correction that mattered.** The README had claimed the reverse-image path was
+"supported but off by default". It was not supported; it did not exist. `SERPAPI_KEY` also
+sat in `.env.example` wired to nothing. Both are fixed — a false capability claim in a
+README is exactly the kind of thing that destroys trust in everything else in it.

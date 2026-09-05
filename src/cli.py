@@ -142,7 +142,21 @@ def run(
     # --- stage 2: search -------------------------------------------------
     console.rule("[bold cyan]2 · search")
     trail = SearchTrail(run_dir=run_dir, cache_dir=CACHE_DIR)
-    providers = [MastodonProvider(os.environ.get("MASTODON_INSTANCE", "https://mastodon.social"))]
+    # A real ladder needs more than one rung. Each Mastodon instance has its own
+    # federated view, so a second one is a genuinely different source rather than
+    # a retry - and if the first is rate-limiting or down, the run continues and
+    # the fall-through is visible on screen.
+    instances = [os.environ.get("MASTODON_INSTANCE", "https://mastodon.social")]
+    instances += [
+        i.strip() for i in os.environ.get(
+            "MASTODON_FALLBACKS", "https://mstdn.social,https://mas.to"
+        ).split(",") if i.strip()
+    ]
+    seen: set[str] = set()
+    providers = [
+        MastodonProvider(i) for i in instances
+        if not (i.rstrip("/") in seen or seen.add(i.rstrip("/")))
+    ]
     console.print(f"  query         {query}")
     console.print(f"  ladder        {' -> '.join(p.name for p in providers)}")
     ladder = run_ladder(providers, query, trail, limit=limit)

@@ -124,8 +124,14 @@ Options, best first:
 - **Cache responses on disk keyed by query hash**, so a re-run mid-recording cannot burn
   quota or hit a rate limit at the worst possible moment.
 - **Scrape properly:** OpenGraph metadata (`og:image`, `og:title`, author, post
-  timestamp) plus a Playwright screenshot of the post. The screenshot is both evidence
-  and good demo footage.
+  timestamp) plus a Playwright screenshot of the post.
+
+  > **Shipped without the screenshot.** OG metadata and the full page HTML are fetched
+  > and hashed into the bundle; Playwright is not a dependency. A ~150 MB browser
+  > download and an extra failure mode were not worth it two days from a
+  > no-resubmission deadline, and the **hashed page HTML is stronger evidence than a
+  > picture of a rendered page**. The bundle schema and `verify` already accept a
+  > `screenshot_sha256`, so adding it later needs no format change.
 
 ---
 
@@ -236,7 +242,7 @@ without disclosing the rest.
 ├── src/
 │   ├── face/              # detect, quality gate, embed
 │   ├── search/            # SearchProvider base + mastodon / serpapi / bluesky
-│   ├── scrape/            # OG metadata, image download, Playwright screenshot
+│   ├── scrape/            # OG metadata, image download (no screenshot - see §2.4)
 │   ├── evidence/          # canonical JSON, hashing, Merkle tree
 │   ├── chain/             # web3 client, anchor, verify
 │   └── cli.py
@@ -252,8 +258,11 @@ python -m src.cli verify --run runs/<run_id>    # re-derive from disk
 python -m src.cli verify --tx 0xabc…            # pull root from chain, re-verify
 ```
 
-`runs/<run_id>/` holds `manifest.json`, `evidence.json`, `probe.jpg`, `candidate.jpg`,
-`screenshot.png`, `page.html`, `search_trail/`, `merkle.json`, `receipt.json`, `run.log`.
+**As shipped**, `runs/<run_id>/` holds `evidence.json`, `receipt.json`, `probe.jpg`,
+`salt.bin`, `candidates/`, `search_trail/`, and `page.html` on a match. (`manifest.json`,
+`merkle.json` and `run.log` from the original sketch were dropped as redundant - the
+Merkle root is derivable from `evidence.json` and duplicating it invites the two copies
+to disagree.)
 
 `verify` recomputes everything and prints a green **PASS** or a red **FAIL** naming the
 exact mismatching hash.
@@ -268,7 +277,7 @@ Each step ends in something demonstrable. Do not start a step before the previou
 2. **Stage 1** — detect → quality gate → embed. Test: two images of the same person score high, two different people score low.
 3. **Evidence core** — canonical JSON + hashing + Merkle. **Test first**: canonicalization must be idempotent and byte-stable across processes. This is the piece that silently breaks the finale.
 4. **Stage 3 on a local chain** — contract, deploy, anchor, verify, and the **tamper test** going red. *Deliberately before the search stage:* it is the requirement most likely to be under-built, and it is fully in our control.
-5. **Stage 2** — Mastodon provider, candidate download, re-embed, adjudicate. Then scrape + screenshot.
+5. **Stage 2** — Mastodon provider, candidate download, re-embed, adjudicate. Then scrape OG metadata + page HTML.
 6. **Wire end to end** — `run` and `verify` over the real loop.
 7. **Testnet deploy** — real tx, explorer link. Needs faucet funds; **start the funding early**, it is the slowest external dependency.
 8. **README** — all four required sections, written against what actually shipped.

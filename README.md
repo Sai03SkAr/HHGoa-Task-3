@@ -208,7 +208,7 @@ runs/<run_id>/
 ├── receipt.json       root, tx, chain
 ├── probe.jpg          the probe image
 ├── salt.bin           salt for the embedding commitment - never leaves this directory
-├── page.html          the matched post, as fetched
+├── page.html          the matched post, as fetched  (only on a match)
 ├── candidates/        every image that was downloaded and scored
 └── search_trail/      raw provider responses, byte for byte
 ```
@@ -291,13 +291,17 @@ already-marginalised groups. Nothing here corrects for that, and the calibration
 came from a single subject, so it says nothing about how the threshold behaves for anyone
 else.
 
-**We search Mastodon, not "the web".** Bing's Visual Search API was retired in August 2025,
-Yandex has no official API, and SerpAPI's Google Lens accepts only a *public image URL* —
-it has no upload endpoint, so reverse-searching a webcam probe would mean **publishing the
-probe face to the public internet first**. That directly contradicts this project's own
-privacy stance, so the reverse-image path is supported but **off by default**. The result
-is real, live, federated social media — and a genuinely narrower slice of the internet
-than a reverse image search would reach.
+**We search Mastodon, not "the web", and reverse image search is not implemented.**
+Bing's Visual Search API was retired in August 2025, Yandex has no official API, and
+SerpAPI's Google Lens accepts only a *public image URL* — it has no upload endpoint, so
+reverse-searching a webcam probe would mean **publishing the probe face to the public
+internet first**. That directly contradicts this project's own privacy stance, so it was
+not built rather than built and disabled. The ladder runs across several Mastodon
+instances, each with its own federated view.
+
+The honest consequence: this searches **real, live, federated social media**, but a
+genuinely narrower slice of the internet than a reverse image search would reach. If the
+person you are looking for posts only on Instagram, this will not find them.
 
 **Results change minute to minute.** A hashtag timeline is live. Re-running the same query
 tomorrow returns different posts, which is exactly why the search trail is hashed into the
@@ -323,6 +327,12 @@ tooling solves it — see below.
 images are not, because we do not control the quality of someone else's posted photo and
 rejecting them would silently discard real matches. Low-quality candidates therefore
 produce noisier scores.
+
+**No page screenshots.** The design sketch called for a Playwright screenshot of the
+matched post as visual evidence. It is not implemented: it adds a ~150 MB browser download
+and a fragile dependency, and the **raw page HTML is hashed into the bundle anyway**, which
+is stronger evidence than an image of a rendered page. The bundle schema and `verify`
+already handle a `screenshot_sha256` if one is ever added.
 
 ---
 
@@ -364,7 +374,7 @@ src/
 ├── face/encoder.py      detect · multi-face policy · quality gate · 512-d embed
 ├── search/
 │   ├── base.py          SearchProvider interface · provider ladder · search trail
-│   ├── mastodon.py      the default provider - no key, no quota
+│   ├── mastodon.py      the only provider - no key, no quota, one per instance
 │   └── matcher.py       the closed loop: re-embed candidates and adjudicate
 ├── scrape/fetch.py      bounded downloads · content sniffing · OpenGraph
 ├── evidence/

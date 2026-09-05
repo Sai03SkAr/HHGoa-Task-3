@@ -54,11 +54,14 @@ def _strip_html(html: str) -> str:
 class MastodonProvider:
     """Searches a Mastodon instance's public API."""
 
-    name = "mastodon"
-
     def __init__(self, instance: str = "https://mastodon.social", timeout: float = 20.0) -> None:
         self.instance = instance.rstrip("/")
         self.timeout = timeout
+        # The instance is part of the name so a ladder spanning several of them
+        # reads unambiguously - both in the log and in the hashed search trail,
+        # where "which server answered" is part of the evidence.
+        host = self.instance.split("://", 1)[-1]
+        self.name = f"mastodon:{host}"
 
     def available(self) -> bool:
         # No credentials required, so this provider is always worth trying.

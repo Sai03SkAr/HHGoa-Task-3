@@ -348,3 +348,29 @@ only the on-chain record catches it. That is precisely what requirement 3 is ask
 and it is now demonstrated rather than asserted.
 
 Restoring the originals returns all three to PASS, exit 0.
+
+---
+
+## F-13 — The provider ladder falls through visibly ✅
+
+The README had claimed reverse image search was "supported but off by default". It was
+**not implemented at all** — see [DECISIONS.md](DECISIONS.md) D-015 for the correction and
+why it was not built. The ladder now spans several Mastodon instances, which have
+genuinely different federated views, so a second rung is a different *source* rather than
+a retry.
+
+Verified by pointing the first rung at a host that does not resolve:
+
+```
+  ladder        mastodon:this-instance-does-not-exist-xyz.invalid -> mastodon:mstdn.social
+search: mastodon:this-instance-does-not-exist-xyz.invalid failed
+        ([Errno 8] nodename nor servname provided, or not known), falling through
+search: mastodon:mstdn.social returned 2 candidates
+  fell through  mastodon:this-instance-does-not-exist-xyz.invalid: error: [Errno 8] ...
+  2 candidate posts via mastodon:mstdn.social
+```
+
+The run continues and the fall-through is printed rather than hidden — which is the point:
+a live demo dies when one endpoint is down, and a ladder that visibly recovers on screen is
+a feature. The instance name is part of the provider name, so it lands in the hashed search
+trail: "which server answered" is itself evidence.
