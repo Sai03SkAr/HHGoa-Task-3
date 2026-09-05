@@ -203,8 +203,25 @@ class ChainClient:
         return address
 
     def at(self, address: str):
+        """Bind to a deployed registry, checking there is really one there.
+
+        Without the code check, pointing at an address that holds no contract -
+        the usual cause being a CONTRACT_ADDRESS left over from a different
+        network, or a local node that has been restarted since - surfaces as
+        web3's `BadFunctionCallOutput: could not decode contract function call`,
+        which says nothing about the actual mistake.
+        """
         abi, _ = compile_contract()
-        return self.w3.eth.contract(address=Web3.to_checksum_address(address), abi=abi)
+        checksummed = Web3.to_checksum_address(address)
+        if self.w3.eth.get_code(checksummed) in (b"", "0x", b"0x"):
+            raise ChainError(
+                f"no contract deployed at {checksummed} on {self.net.name} "
+                f"(chain id {self.chain_id}).\n"
+                "  A CONTRACT_ADDRESS from a different network, or a local node "
+                "restarted since it was deployed, both look like this.\n"
+                "  Deploy a fresh one with:  python -m src.cli deploy"
+            )
+        return self.w3.eth.contract(address=checksummed, abi=abi)
 
     def anchor(self, address: str, root: bytes, cid: str = "") -> Receipt:
         """Anchor a Merkle root. Raises if it is already on chain."""

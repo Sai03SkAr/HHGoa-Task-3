@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import pathlib
 
 import numpy as np
 import pytest
@@ -194,7 +195,7 @@ def test_verify_detects_a_single_flipped_field():
     tampered.match["scored"][0]["cosine"] = 0.99
     result = verify_bundle(tampered, expected_root=anchored)
     assert not result.passed
-    assert any("does not" in d or "!=" in d for _, ok, d in result.checks if not ok)
+    assert any("!=" in d for _, status, d in result.checks if status == "fail")
 
 
 def test_verify_without_an_expected_root_still_checks_proofs():
@@ -224,7 +225,7 @@ def test_verify_reports_a_missing_artefact(tmp_path):
     bundle.probe["image_sha256"] = "b" * 64
     result = verify_bundle(bundle, run_dir=tmp_path)
     assert not result.passed
-    assert any("missing" in d for _, ok, d in result.checks if not ok)
+    assert any("missing" in d for _, status, d in result.checks if status == "fail")
 
 
 # --- schema ----------------------------------------------------------------
@@ -249,3 +250,54 @@ def test_schema_version_is_committed_to():
     bundle = sample()
     meta_leaf = bundle.leaves()[SECTION_ORDER.index("meta")]
     assert b"schema_version" in meta_leaf and b"run_id" in meta_leaf
+
+
+# --- honesty about what was actually checked -------------------------------
+
+
+def test_no_chain_check_is_reported_as_unverified_not_passed():
+    """The most dangerous possible bug in this tool.
+
+    If no chain was consulted, the only comparison available is the bundle
+    against the root it records about itself - which is circular, since anyone
+    editing the evidence would edit that too. Printing "matches the on-chain
+    anchor" there would be an outright false claim.
+    """
+    bundle = sample()
+    result = verify_bundle(bundle, expected_root=bundle.root_hex, root_from_chain=False)
+    assert result.passed, "nothing is wrong, so this is not a failure"
+    assert result.has_unverified, "but it must not be reported as verified"
+    assert not result.chain_checked
+    statuses = {name: status for name, status, _ in result.checks}
+    assert statuses["root matches the on-chain anchor"] == "unverified"
+    assert "PASS (INCOMPLETE" in result.report()
+
+
+def test_chain_check_sets_chain_checked():
+    bundle = sample()
+    result = verify_bundle(bundle, expected_root=bundle.root_hex, root_from_chain=True)
+    assert result.passed and result.chain_checked and not result.has_unverified
+    assert result.report().rstrip().endswith("PASS")
+
+
+def test_bundle_contradicting_its_own_root_still_fails_without_a_chain():
+    """Unverifiable is not a licence to ignore an outright inconsistency."""
+    result = verify_bundle(sample(), expected_root="0x" + "11" * 32, root_from_chain=False)
+    assert not result.passed
+
+
+def test_bundle_with_no_anchor_at_all_is_unverified():
+    result = verify_bundle(sample(), expected_root=None)
+    assert result.passed and result.has_unverified
+
+
+def test_unverified_never_masks_a_real_failure():
+    """An unverified check must not turn a FAIL into a pass."""
+    import hashlib
+
+    bundle = sample()
+    bundle.probe["image_file"] = "gone.jpg"
+    bundle.probe["image_sha256"] = hashlib.sha256(b"x").hexdigest()
+    result = verify_bundle(bundle, expected_root=None, run_dir=pathlib.Path("/nonexistent"))
+    assert result.has_unverified
+    assert not result.passed

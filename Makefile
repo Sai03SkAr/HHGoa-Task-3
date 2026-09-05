@@ -41,8 +41,18 @@ node:
 deploy:
 	$(PY) -m src.cli deploy
 
+# `run` exits 1 when it finds no match. That is a real outcome, not a failure -
+# the pipeline ran, produced a full evidence bundle and anchored it - so it is
+# reported rather than turned into "make: *** Error 1". Exit codes above 1 are
+# genuine errors and still stop the build.
 demo:
-	$(PY) -m src.cli run --image "$(PROBE)" --query "$(QUERY)"
+	@$(PY) -m src.cli run --image "$(PROBE)" --query "$(QUERY)"; \
+	code=$$?; \
+	if [ $$code -eq 1 ]; then \
+		echo "\n  (no match - the run completed and the evidence is anchored)"; \
+	elif [ $$code -ne 0 ]; then \
+		exit $$code; \
+	fi
 
 verify:
 	@RUN=$$(ls -dt runs/*/ 2>/dev/null | head -1); \

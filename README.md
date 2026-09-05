@@ -154,6 +154,42 @@ re-derives everything.
 One altered field — zero change in file length — produces a completely different root,
 and `verify` prints the computed and anchored roots side by side.
 
+Tampering is caught three independent ways:
+
+| What you change | What catches it |
+|---|---|
+| any field in `evidence.json` | the recomputed Merkle root |
+| `probe.jpg`, leaving the JSON untouched | the artefact hash recorded in the bundle |
+| **the evidence *and* the bundle's own recorded root**, so the file is self-consistent | **the chain** — that root was never anchored |
+
+The third case is the one the blockchain actually earns its place for. A self-consistent
+forgery defeats every local check; only the on-chain record catches it.
+
+### Exit codes
+
+| code | meaning |
+|---|---|
+| `0` | success — `run` matched, or `verify` passed |
+| `1` | **a legitimate negative**: no match found, or verification FAILED. The pipeline worked; the answer was no |
+| `2` | bad input or configuration — unreadable probe, unreachable chain |
+| `3` | no candidates returned by any search provider |
+
+### When verification cannot reach a chain
+
+`verify` will **never** claim a root "matches the on-chain anchor" unless it actually read
+that root from a chain. If no chain can be consulted — the ephemeral `memory` chain, or a
+node that is down — the check is reported as `????` **UNVERIFIED** and the verdict is
+**INCOMPLETE**, not PASS:
+
+```
+  ????  root matches the on-chain anchor   NOT CHECKED - no chain was consulted, so this
+        compares the bundle against its own recorded root, which a tampered bundle would
+        also change
+```
+
+Without that distinction the tool would produce a confident green PASS for a check it
+never performed, which is worse than no check at all.
+
 ### Tests
 
 ```bash
@@ -161,7 +197,7 @@ make test        # full suite, loads the real model
 make test-fast   # no model load, no network
 ```
 
-**129 fast tests, plus 9 that load the real model.** The chain tests run entirely
+**135 fast tests, plus 9 that load the real model.** The chain tests run entirely
 in-process on `eth-tester` — no node, no faucet, no network.
 
 ### What a run leaves behind
@@ -338,5 +374,5 @@ src/
 ├── chain/registry.py    compile · deploy · anchor · verify · recover-from-tx
 └── cli.py               run · verify · deploy · wallet-new
 contracts/EvidenceRegistry.sol
-tests/                   129 fast + 9 model-loading
+tests/                   135 fast + 9 model-loading
 ```

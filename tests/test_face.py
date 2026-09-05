@@ -19,6 +19,7 @@ from src.face.encoder import (
     FaceEncoder,
     FaceError,
     NoFaceFound,
+    ProbeUnreadable,
     QualityRejected,
     load_image,
 )
@@ -42,7 +43,16 @@ def encoder() -> FaceEncoder:
 
 
 def test_load_image_missing_file(tmp_path):
-    with pytest.raises(FileNotFoundError):
+    """A missing probe is a probe problem, reported like any other."""
+    with pytest.raises(ProbeUnreadable, match="no such image"):
+        load_image(tmp_path / "nope.jpg")
+
+
+def test_probe_unreadable_is_both_a_face_error_and_an_oserror(tmp_path):
+    """The CLI catches FaceError; a library caller may expect OSError."""
+    with pytest.raises(FaceError):
+        load_image(tmp_path / "nope.jpg")
+    with pytest.raises(OSError):
         load_image(tmp_path / "nope.jpg")
 
 
@@ -54,7 +64,7 @@ def test_load_image_rejects_html_masquerading_as_jpeg(tmp_path):
     """
     fake = tmp_path / "downloaded.jpg"
     fake.write_bytes(b"<!DOCTYPE html>\n<html><title>404</title></html>")
-    with pytest.raises(FaceError, match="not a decodable image"):
+    with pytest.raises(ProbeUnreadable, match="not a decodable image"):
         load_image(fake)
 
 

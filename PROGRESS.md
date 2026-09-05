@@ -25,7 +25,12 @@ and no-match paths are verified against live data (F-10, F-11).
 4. **Fresh-clone dry run** — the submission checklist demands it and there are no
    resubmissions.
 
-**138 tests pass** (129 fast + 9 model-loading). `make test-fast` skips the model.
+**144 tests pass** (135 fast + 9 model-loading). `make test-fast` skips the model.
+
+A full verification pass — fresh clone from GitHub, every CLI path, every error path, and
+adversarial tamper cases — is recorded in [docs/FINDINGS.md](docs/FINDINGS.md) **F-12**.
+It found and fixed six real defects, the most serious being that `verify` claimed a root
+matched the on-chain anchor in cases where no chain had been consulted.
 
 ---
 
@@ -143,6 +148,7 @@ searches/month. Skip unless a second visible rung on the ladder is wanted for th
 
 | Date | Entry |
 |---|---|
+| 2026-09-05 | Verification pass (F-12). Fresh-clone dry run passed. Six defects found and fixed: verify falsely claiming on-chain confirmation when no chain was reached; insightface stdout noise; raw traceback on a missing probe; empty run dirs left by failed runs; unhelpful error on a cross-network contract address; `make demo` reporting a no-match as a build failure. Tamper detection confirmed on three independent vectors including a self-consistent forgery. 144 tests. |
 | 2026-09-05 | Pipeline complete. Search stage, evidence bundle and CLI built; verified end to end against live Mastodon data and a local chain — match, no-match, verify-from-tx, and the tamper cycle (PASS → FAIL → PASS). Threshold calibrated on real photos (F-9). README written. 138 tests. |
 | 2026-09-05 | Implementation began. Evidence core (canonical + Merkle), Stage 1 (face), Stage 3 (chain + contract) all built and tested — 68 tests green. Toolchain collapsed to pure Python (D-014, supersedes D-005). Two real bugs caught by tests: numpy scalars leaking into evidence (would have failed at hash time) and a multi-face policy comparing areas where it meant widths. First commit. |
 | 2026-09-05 | Analysis phase. Read task + IDEAS.md; fact-checked IDEAS.md (Bing retired, both RPCs dead, SerpAPI upload limitation); validated InsightFace + cosine thresholds; found Mastodon as a zero-key search path; initialised repo with Task 1/2 excluded; wrote the doc set. No implementation. |

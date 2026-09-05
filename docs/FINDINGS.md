@@ -310,3 +310,41 @@ A run at `--limit 12` did **not** finish in 7 minutes: cost is dominated by down
 full-resolution originals, which vary enormously in size. `--limit` and `--max-images`
 are therefore the demo's runtime levers, and the defaults (10 and 3) are set for a
 recording rather than for exhaustiveness. **Do not raise them mid-demo.**
+
+---
+
+## F-12 — Full verification pass (fresh clone + adversarial cases) ✅
+
+A deliberate audit rather than a happy-path demo. Everything below was run, and each
+problem found was fixed.
+
+### Fresh clone from GitHub
+
+`git clone` into an empty directory → `make setup` → `make test-fast` → **129 passed**,
+then `make test` → **138 passed** in 14.4 s including the model download. The public repo
+contains no `HHGoa Task1 /`, no `HHGoa Task2/`, no `.env`, no `runs/`, no `.cache/`.
+
+### Six real defects found and fixed
+
+| # | Defect | Why it mattered |
+|---|---|---|
+| 1 | **`verify` claimed "root matches the on-chain anchor" when no chain was consulted.** On the `memory` chain — which dies with the process — it compared the bundle against the root the bundle records *about itself*. | The most dangerous bug in the audit. Circular: anyone editing the evidence would edit that field too. Now reported as a distinct **`????` UNVERIFIED`** state with an **INCOMPLETE** verdict, never a green PASS. |
+| 2 | **InsightFace printed ~11 lines of model-loading noise to stdout on every run.** It uses `print()`, so no log level silences it. | Buried the pipeline's own output and would have cluttered the entire screen recording. Now captured and re-emitted at debug level. |
+| 3 | **A missing probe file raised a raw `FileNotFoundError` traceback.** | Every other probe problem reported cleanly; this one dumped a stack trace. Now `ProbeUnreadable`, which subclasses both `FaceError` and `OSError`. |
+| 4 | **Every failed run left an empty `runs/<id>/` directory behind.** | Junk accumulation for anyone experimenting. The directory is now created only once the probe passes. |
+| 5 | **A `CONTRACT_ADDRESS` from the wrong network produced `BadFunctionCallOutput`.** | Says nothing about the actual mistake. Now a code check at the address with an actionable message. `memory` also ignores any configured address, since its chain is fresh each process. |
+| 6 | **`make demo` reported `Error 1` on a legitimate no-match run.** | The pipeline had worked perfectly; it just found no match. Exit codes are now documented (0/1/2/3) and the Makefile distinguishes a negative result from a failure. |
+
+### Tamper detection — three independent mechanisms
+
+| Attack | Caught by | Result |
+|---|---|---|
+| Edit one field in `evidence.json` | recomputed Merkle root | FAIL, exit 1 |
+| Edit `probe.jpg`, leave the JSON alone | recorded artefact hash | FAIL, exit 1 |
+| **Edit the evidence *and* the recorded root so the bundle is internally consistent** | **the chain** — that root was never anchored | **FAIL, exit 1** |
+
+The third is the one that matters. A self-consistent forgery defeats every local check;
+only the on-chain record catches it. That is precisely what requirement 3 is asking for,
+and it is now demonstrated rather than asserted.
+
+Restoring the originals returns all three to PASS, exit 0.

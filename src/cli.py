@@ -8,6 +8,15 @@ Two verbs:
 
 Everything printed here also lands in the run directory, so the terminal is a
 view of the evidence rather than the only record of it.
+
+Exit codes, chosen so scripts can tell outcomes from failures:
+
+    0  success - `run` matched, or `verify` passed
+    1  a legitimate negative - no match found, or verification FAILED.
+       The pipeline worked; the answer was no.
+    2  bad input or unusable configuration - unreadable probe, missing
+       arguments, unreachable chain
+    3  no candidates returned by any search provider
 """
 
 from __future__ import annotations
@@ -100,7 +109,6 @@ def run(
 
     run_id = new_run_id()
     run_dir = RUNS_DIR / run_id
-    run_dir.mkdir(parents=True, exist_ok=True)
     console.print(Panel.fit(f"[bold]run {run_id}[/bold]\n{utc_now()}", border_style="cyan"))
 
     # --- stage 1: face ---------------------------------------------------
@@ -109,10 +117,13 @@ def run(
     try:
         probe = encoder.encode_file(image)
     except FaceError as exc:
-        # A refusal with its measurement is a result, not a crash.
+        # A refusal with its measurement is a result, not a crash. The run
+        # directory is deliberately not created until the probe passes -
+        # otherwise every rejected probe leaves an empty directory behind.
         console.print(f"[red]probe rejected:[/red] {exc}")
         raise typer.Exit(2)
 
+    run_dir.mkdir(parents=True, exist_ok=True)
     probe_copy = run_dir / "probe.jpg"
     probe_copy.write_bytes(Path(image).read_bytes())
     # The salt keeps the embedding commitment from being brute-forceable and
@@ -218,10 +229,15 @@ def run(
         console.rule("[bold cyan]6 · anchor on chain")
         net, key, address = _chain_from_env(network)
         address = contract or address
+        if net == "memory":
+            # The in-process chain is created fresh for this process and dies
+            # with it, so any configured CONTRACT_ADDRESS belongs to a
+            # different chain. Deploy every time rather than fail confusingly.
+            address = None
         try:
             client = ChainClient(net, private_key=key)
             if not address:
-                console.print(f"  no CONTRACT_ADDRESS set - deploying to {net}…")
+                console.print(f"  no contract for {net} - deploying…")
                 address = client.deploy()
                 console.print(f"  deployed      {address}")
             receipt = client.anchor(address, tree.root, cid="")
@@ -242,6 +258,11 @@ def run(
         except ChainError as exc:
             console.print(f"  [red]anchoring failed:[/red] {exc}")
             bundle.chain = {"error": str(exc)}
+        except Exception as exc:  # noqa: BLE001 - web3 raises its own hierarchy
+            # A chain problem must not destroy a run whose face and search work
+            # already succeeded: the evidence is still written, just unanchored.
+            console.print(f"  [red]anchoring failed:[/red] {type(exc).__name__}: {exc}")
+            bundle.chain = {"error": f"{type(exc).__name__}: {exc}"}
 
     # The bundle is written last: chain details are part of what it commits to,
     # so the root printed above is recomputed here with them included.
@@ -329,38 +350,72 @@ def verify(
         console.print(f"[red]FAIL[/red]  evidence.json could not be parsed: {exc}")
         raise typer.Exit(1)
 
-    # When no tx was given, fall back to what the bundle says it anchored - and
-    # confirm it against the chain if it named one.
+    # When no tx was given, fall back to what the bundle says it anchored - but
+    # only treat it as an on-chain fact if a chain actually confirms it.
+    # `root_from_chain` tracks that distinction, because claiming "matches the
+    # on-chain anchor" without consulting a chain is the most misleading thing
+    # this command could print.
+    root_from_chain = tx is not None
     if anchored_root is None:
         recorded = bundle.chain.get("root")
         contract_addr = bundle.chain.get("contract")
         net = network or bundle.chain.get("network") or os.environ.get("CHAIN", "memory")
-        if recorded and contract_addr and net not in ("memory",):
+        anchored_root = recorded
+        if recorded and contract_addr and _normalize_net(net) != "memory":
             try:
                 client = ChainClient(_normalize_net(net), private_key=os.environ.get("PRIVATE_KEY"))
                 found = client.lookup(contract_addr, bytes.fromhex(recorded[2:]))
-                anchored_root = found["root"] if found else None
-                console.print(f"  chain lookup  {'found' if found else 'NOT FOUND'} on {net}")
-            except ChainError as exc:
+                if found:
+                    anchored_root = found["root"]
+                    root_from_chain = True
+                    console.print(f"  chain lookup  found on {net}")
+                else:
+                    # The chain answered, and the answer is that this root was
+                    # never anchored. That is a genuine failure, not an
+                    # unverifiable one.
+                    anchored_root = None
+                    root_from_chain = True
+                    console.print(f"  chain lookup  [red]NOT FOUND[/red] on {net}")
+            except (ChainError, Exception) as exc:  # noqa: BLE001
                 console.print(f"  [yellow]chain unreachable:[/yellow] {exc}")
-                anchored_root = recorded
-        else:
-            anchored_root = recorded
+        elif _normalize_net(net) == "memory":
+            console.print(
+                "  [yellow]chain lookup  skipped[/yellow] - the 'memory' chain is "
+                "in-process and does not outlive the run that created it"
+            )
 
-    result = verify_bundle(bundle, expected_root=anchored_root, run_dir=Path(run_dir))
+    if root_from_chain and anchored_root is None:
+        console.print()
+        console.print(Panel.fit(
+            "[bold red]FAIL[/bold red] — this root is not anchored on the chain",
+            border_style="red"))
+        raise typer.Exit(1)
 
-    for name, ok, detail in result.checks:
-        mark = "[green]PASS[/green]" if ok else "[red]FAIL[/red]"
-        console.print(f"  {mark}  {name}" + (f"  [dim]{detail}[/dim]" if detail else ""))
+    result = verify_bundle(bundle, expected_root=anchored_root,
+                           run_dir=Path(run_dir), root_from_chain=root_from_chain)
+
+    marks = {
+        "pass": "[green]PASS[/green]",
+        "fail": "[red]FAIL[/red]",
+        "unverified": "[yellow]????[/yellow]",
+    }
+    for name, status, detail in result.checks:
+        console.print(f"  {marks[status]}  {name}" + (f"  [dim]{detail}[/dim]" if detail else ""))
 
     console.print()
-    if result.passed:
-        console.print(Panel.fit("[bold green]PASS[/bold green] — evidence matches the anchored root",
-                                border_style="green"))
-    else:
+    if not result.passed:
         console.print(Panel.fit("[bold red]FAIL[/bold red] — evidence does not match",
                                 border_style="red"))
         raise typer.Exit(1)
+    if result.has_unverified:
+        console.print(Panel.fit(
+            "[bold yellow]INCOMPLETE[/bold yellow] — the evidence is internally "
+            "consistent,\nbut it was NOT checked against a blockchain",
+            border_style="yellow"))
+        # Exit 0: nothing is wrong. The caller is told plainly what was not done.
+        return
+    console.print(Panel.fit("[bold green]PASS[/bold green] — evidence matches the anchored root",
+                            border_style="green"))
 
 
 def _normalize_net(name: str) -> str:
@@ -402,9 +457,14 @@ def wallet_new() -> None:
     from eth_account import Account
 
     account = Account.create()
+    # eth-account's .hex() dropped the 0x prefix in recent versions. Both forms
+    # load fine, but .env.example shows the prefixed form and a key that looks
+    # different from the documented one invites a "did I paste it right?" pause
+    # mid-demo.
+    private_key = "0x" + account.key.hex().removeprefix("0x")
     console.print(Panel.fit(
         f"[bold]address[/bold]      {account.address}\n"
-        f"[bold]private key[/bold]  {account.key.hex()}",
+        f"[bold]private key[/bold]  {private_key}",
         title="burner wallet", border_style="yellow",
     ))
     console.print(

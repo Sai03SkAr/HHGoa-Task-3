@@ -18,7 +18,9 @@ therefore carries its measured value and its bound.
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
+import io
 import logging
 import warnings
 from dataclasses import dataclass, field
@@ -61,6 +63,15 @@ AMBIGUOUS_FACE_RATIO = 0.70
 
 class FaceError(Exception):
     """Base for stage-1 failures that should be reported, not crashed on."""
+
+
+class ProbeUnreadable(FaceError, OSError):
+    """The probe file is missing or is not a decodable image.
+
+    Inherits OSError as well as FaceError so that callers who reasonably
+    expect an OSError from something that reads a file still catch it, while
+    the CLI can report it alongside every other probe problem.
+    """
 
 
 class NoFaceFound(FaceError):
@@ -154,10 +165,21 @@ class FaceEncoder:
         from insightface.app import FaceAnalysis
 
         self.model_name = model
-        self._app = FaceAnalysis(name=model, providers=["CPUExecutionProvider"])
-        # ctx_id=-1 forces CPU. No GPU assumption, so a grader's laptop behaves
-        # the same as this one.
-        self._app.prepare(ctx_id=-1, det_size=(det_size, det_size))
+        # insightface print()s about a dozen lines of model-loading detail
+        # straight to stdout, every time. It is not logging, so it cannot be
+        # silenced with a log level - it has to be captured. Left alone it
+        # buries the pipeline's own output and would clutter a screen
+        # recording, so it is captured and re-emitted at debug level where
+        # someone debugging can still get at it.
+        buffer = io.StringIO()
+        with contextlib.redirect_stdout(buffer):
+            self._app = FaceAnalysis(name=model, providers=["CPUExecutionProvider"])
+            # ctx_id=-1 forces CPU. No GPU assumption, so a grader's laptop
+            # behaves the same as this one.
+            self._app.prepare(ctx_id=-1, det_size=(det_size, det_size))
+        for line in buffer.getvalue().splitlines():
+            if line.strip():
+                log.debug("insightface: %s", line.strip())
         log.debug("loaded insightface/%s at det_size=%d", model, det_size)
 
     @property
@@ -264,11 +286,15 @@ def load_image(path: str | Path) -> np.ndarray:
     """
     path = Path(path)
     if not path.exists():
-        raise FileNotFoundError(f"no such image: {path}")
+        # A FaceError subclass rather than a bare FileNotFoundError: the CLI
+        # reports every probe problem the same way, and an unreadable file is
+        # a probe problem, not a crash. ProbeUnreadable still subclasses
+        # OSError so library callers can catch it either way.
+        raise ProbeUnreadable(f"no such image: {path}")
     image = cv2.imread(str(path), cv2.IMREAD_COLOR)
     if image is None:
         head = path.read_bytes()[:64]
-        raise FaceError(
+        raise ProbeUnreadable(
             f"{path} is not a decodable image (first bytes: {head[:32]!r}). "
             "A failed download often lands as an HTML error page with an image extension."
         )

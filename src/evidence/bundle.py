@@ -183,27 +183,61 @@ class VerifyResult:
     passed: bool
     computed_root: str
     expected_root: str | None = None
-    checks: list[tuple[str, bool, str]] = field(default_factory=list)
+    # (name, status, detail) where status is "pass", "fail" or "unverified".
+    checks: list[tuple[str, str, str]] = field(default_factory=list)
+    # True only when the expected root was actually read from a chain.
+    chain_checked: bool = False
 
     def add(self, name: str, ok: bool, detail: str = "") -> None:
-        self.checks.append((name, ok, detail))
+        self.checks.append((name, "pass" if ok else "fail", detail))
         if not ok:
             self.passed = False
 
+    def add_unverified(self, name: str, detail: str = "") -> None:
+        """Record something that could not be checked.
+
+        Not a failure - nothing was shown to be wrong - but emphatically not a
+        pass either. It never sets `passed` to False, so it cannot mask a real
+        result, and the CLI renders the overall verdict differently when one is
+        present.
+        """
+        self.checks.append((name, "unverified", detail))
+
+    @property
+    def has_unverified(self) -> bool:
+        return any(status == "unverified" for _, status, _ in self.checks)
+
     def report(self) -> str:
-        lines = [f"{'PASS' if ok else 'FAIL'}  {name}" + (f"  - {d}" if d else "")
-                 for name, ok, d in self.checks]
+        marks = {"pass": "PASS", "fail": "FAIL", "unverified": "????"}
+        lines = [f"{marks[status]}  {name}" + (f"  - {d}" if d else "")
+                 for name, status, d in self.checks]
         lines.append("")
-        lines.append("PASS" if self.passed else "FAIL")
+        if not self.passed:
+            lines.append("FAIL")
+        elif self.has_unverified:
+            lines.append("PASS (INCOMPLETE - see unverified checks)")
+        else:
+            lines.append("PASS")
         return "\n".join(lines)
 
 
 def verify_bundle(bundle: Bundle, expected_root: str | None = None,
-                  run_dir: Path | None = None) -> VerifyResult:
+                  run_dir: Path | None = None,
+                  root_from_chain: bool = True) -> VerifyResult:
     """Recompute everything derivable from the bundle and its run directory.
 
     Deliberately re-derives rather than trusting any value recorded inside the
     bundle: a tampered bundle would otherwise simply carry a tampered root.
+
+    `root_from_chain` says where `expected_root` came from, and it changes what
+    this function is entitled to claim. When the root was read from a chain,
+    a match is real evidence of integrity. When the chain could not be reached -
+    or never persisted, as with the in-process test chain - the only available
+    comparison is against the root the bundle records about *itself*, which is
+    circular: an attacker editing the evidence would edit that too. In that
+    case the check is reported as UNVERIFIED rather than as a pass, because
+    quietly printing "matches the on-chain anchor" when no chain was consulted
+    would be the single most misleading thing this tool could do.
     """
     computed = bundle.root_hex
     result = VerifyResult(passed=True, computed_root=computed, expected_root=expected_root)
@@ -222,9 +256,29 @@ def verify_bundle(bundle: Bundle, expected_root: str | None = None,
 
     if expected_root is not None:
         matches = computed.lower() == expected_root.lower()
-        result.add(
-            "root matches the on-chain anchor", matches,
-            computed if matches else f"computed {computed} != anchored {expected_root}",
+        if root_from_chain:
+            result.chain_checked = True
+            result.add(
+                "root matches the on-chain anchor", matches,
+                computed if matches else f"computed {computed} != anchored {expected_root}",
+            )
+        elif not matches:
+            # Still worth reporting: the bundle contradicts even itself.
+            result.add(
+                "root matches the root recorded in the bundle", False,
+                f"computed {computed} != recorded {expected_root}",
+            )
+        else:
+            result.add_unverified(
+                "root matches the on-chain anchor",
+                "NOT CHECKED - no chain was consulted, so this compares the "
+                "bundle against its own recorded root, which a tampered bundle "
+                "would also change",
+            )
+    else:
+        result.add_unverified(
+            "root matches the on-chain anchor",
+            "NOT CHECKED - the bundle records no anchor",
         )
 
     # Re-hash the artefacts on disk against what the bundle claims about them.
