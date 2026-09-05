@@ -146,7 +146,25 @@ class ChainClient:
             from web3 import EthereumTesterProvider
 
             self.w3 = Web3(EthereumTesterProvider())
-            self.sender = self.w3.eth.accounts[0]
+            if private_key:
+                # Honouring a key here is what makes the *testnet* code path
+                # unit-testable. A public network has no unlocked accounts, so
+                # it goes through build -> sign -> send_raw_transaction, which
+                # is a genuinely different path from the node-unlocked
+                # transact() used below. Without this the only way to exercise
+                # it would be to spend real testnet funds.
+                from eth_account import Account
+
+                self.account = Account.from_key(private_key)
+                self.sender = self.account.address
+                # eth-tester only funds its own accounts, so seed this one.
+                self.w3.eth.send_transaction({
+                    "from": self.w3.eth.accounts[0],
+                    "to": self.sender,
+                    "value": self.w3.to_wei(100, "ether"),
+                })
+            else:
+                self.sender = self.w3.eth.accounts[0]
         else:
             url = rpc_url or self.net.rpc
             self.w3 = Web3(Web3.HTTPProvider(url, request_kwargs={"timeout": 30}))

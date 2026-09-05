@@ -197,7 +197,7 @@ make test        # full suite, loads the real model
 make test-fast   # no model load, no network
 ```
 
-**135 fast tests, plus 9 that load the real model.** The chain tests run entirely
+**139 fast tests, plus 9 that load the real model.** The chain tests run entirely
 in-process on `eth-tester` — no node, no faucet, no network.
 
 > Very occasionally (once in ~17 runs) the full suite aborts at interpreter teardown with
@@ -389,5 +389,5 @@ src/
 ├── chain/registry.py    compile · deploy · anchor · verify · recover-from-tx
 └── cli.py               run · verify · deploy · wallet-new
 contracts/EvidenceRegistry.sol
-tests/                   135 fast + 9 model-loading
+tests/                   139 fast + 9 model-loading
 ```

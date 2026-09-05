@@ -141,3 +141,65 @@ def test_dead_rpcs_from_ideas_md_are_not_used():
     configured = {n.rpc for n in NETWORKS.values() if n.rpc}
     assert "https://rpc.sepolia.org" not in configured
     assert "https://rpc-amoy.polygon.technology" not in configured
+
+
+# --- the testnet code path -------------------------------------------------
+#
+# A public network has no unlocked accounts, so every transaction goes through
+# build_transaction -> sign -> send_raw_transaction. That is a different path
+# from the node-unlocked transact() used everywhere above, and it is the one a
+# real testnet deploy depends on. These exercise it without spending funds.
+
+BURNER_KEY = "0x" + "11" * 32
+
+
+@pytest.fixture(scope="module")
+def signing_client() -> ChainClient:
+    """A client that signs locally, exactly as a testnet client does."""
+    return ChainClient("memory", private_key=BURNER_KEY)
+
+
+def test_private_key_selects_the_local_signing_path(signing_client):
+    from eth_account import Account
+
+    assert signing_client.account is not None, "must sign locally, not via the node"
+    assert signing_client.sender == Account.from_key(BURNER_KEY).address
+    assert signing_client.balance_eth() > 0
+
+
+def test_deploy_and_anchor_via_local_signing(signing_client):
+    """The whole testnet flow: deploy, anchor, read back, recover from the tx."""
+    address = signing_client.deploy()
+    receipt = signing_client.anchor(address, ROOT_A, "ipfs://signed")
+    assert receipt.tx_hash.startswith("0x") and receipt.gas_used > 0
+
+    record = signing_client.lookup(address, ROOT_A)
+    assert record["root"] == "0x" + ROOT_A.hex()
+    assert record["cid"] == "ipfs://signed"
+    # The submitter must be the burner, proving the signature was ours and not
+    # the node's default account.
+    assert record["submitter"] == signing_client.sender
+
+    recovered = signing_client.anchor_from_tx(receipt.tx_hash)
+    assert recovered["root"] == "0x" + ROOT_A.hex()
+
+
+def test_nonce_advances_across_signed_transactions(signing_client):
+    """Two anchors in a row must not collide on a stale nonce.
+
+    build_transaction fetches the nonce each time; if that were cached or
+    computed once, the second transaction on a real network would be rejected.
+    """
+    address = signing_client.deploy()
+    first = signing_client.anchor(address, bytes.fromhex("01" * 32))
+    second = signing_client.anchor(address, bytes.fromhex("02" * 32))
+    assert first.tx_hash != second.tx_hash
+    assert signing_client.lookup(address, bytes.fromhex("01" * 32))
+    assert signing_client.lookup(address, bytes.fromhex("02" * 32))
+
+
+def test_signed_receipt_carries_the_chain_id(signing_client):
+    """A signed transaction is chain-id bound (EIP-155); it must be recorded."""
+    address = signing_client.deploy()
+    receipt = signing_client.anchor(address, ROOT_B)
+    assert receipt.chain_id == signing_client.chain_id

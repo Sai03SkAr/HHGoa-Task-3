@@ -19,7 +19,7 @@
 > for whoever continues the work.
 
 **Last updated:** 2026-09-05 · **Status: BUILT, AUDITED AND PUSHED.** All five technical
-requirements are met and verified on the local-chain path. 144 tests pass. What remains is
+requirements are met and verified on the local-chain path. 148 tests pass. What remains is
 a demo subject, an optional testnet deploy, and the screen recording — see
 [PROGRESS.md](PROGRESS.md).
 

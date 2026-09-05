@@ -17,7 +17,7 @@ scratch as a grader would, and it worked.
 **Repo:** https://github.com/Sai03SkAr/HHGoa-Task-3 — public, 4 commits, everything pushed.
 Local checkout: `/Users/saisalelkar/Desktop/HHGoa Task3`.
 
-**144 tests pass.** `make test-fast` (135, no model, no network) · `make test` (all 144).
+**148 tests pass.** `make test-fast` (139, no model, no network) · `make test` (all 148).
 
 **Nothing is blocked on code.** What remains is three human actions and the recording.
 
@@ -34,6 +34,11 @@ Local checkout: `/Users/saisalelkar/Desktop/HHGoa Task3`.
    once a burner address is funded (`python -m src.cli wallet-new` generates one).
    **If this happens, put the contract address + explorer link in the README** — there is a
    placeholder marked `not yet deployed` under "Which blockchain".
+
+   The testnet code path is **verified** as far as it can be without funds (F-15): all
+   three networks connect, Amoy's POA middleware works, live gas pricing is sane, and the
+   local-signing path a testnet uses is covered by four tests. Only the actual broadcast
+   is unproven — so **deploy before recording, not during.**
 3. **Rehearse and record.** Shot list in [PLAN.md](PLAN.md) §7. Run `make prewarm` first so
    nothing downloads mid-take.
 4. **Fresh-clone dry run before submitting.** Already done once (F-12), but repeat it after
@@ -83,6 +88,7 @@ Everything below was actually run; details and raw output in
 | **Threshold calibration** (F-9) | Same person cross-post median **0.698**; different people **−0.044**. 0.45 sits in an empty valley — moving it 0.30→0.50 changes only **1.1%** of verdicts |
 | **Tamper detection** (F-12) | Three independent vectors, including a **self-consistent forgery** that only the chain catches |
 | **Fresh clone** (F-12) | `git clone` → `make setup` → `make test` → all pass, on a directory that had never seen the project |
+| **Testnet signing path** (F-15) | Verified without funds: 3 networks connect, POA middleware works, local-signing deploy/anchor/lookup/recover all pass |
 | **Ladder fall-through** (F-13) | Dead first instance → visible fall-through → run completes on the next rung |
 | **Runtime** (F-11) | ~16 s end to end for 3 posts / 12 images, including model load and the anchor tx |
 
@@ -93,7 +99,7 @@ Everything below was actually run; details and raw output in
 ### ⚠️ Rare native crash at test teardown — F-14
 
 Seen **once in ~17 runs**: `libc++abi ... recursive_mutex lock failed` / `Abort trap: 6`
-*after* all 144 tests reported passing. A native teardown race in onnxruntime/opencv, not
+*after* all 148 tests reported passing. A native teardown race in onnxruntime/opencv, not
 a correctness problem. **Workaround: re-run.** Do not debug it on camera.
 
 ### 🟡 README testnet placeholder
@@ -150,6 +156,7 @@ Each was a decision, not an oversight — see [docs/DECISIONS.md](docs/DECISIONS
 
 | Date | Entry |
 |---|---|
+| 2026-09-05 | Closed the last coverage gap: the testnet code path (build/sign/send_raw_transaction) had never been exercised. Now unit-tested via eth-tester with a funded burner key — 4 new tests. Checked Amoy live gas (~116 gwei, above the floor) so no speculative override was added. 148 tests. |
 | 2026-09-05 | Corrected a false README claim (reverse image search was never implemented) and made the ladder genuinely multi-rung across Mastodon instances (D-015, F-13). Fixed PLAN/README doc-vs-code mismatches. Recorded the rare teardown flake (F-14). |
 | 2026-09-05 | Verification pass (F-12). Fresh-clone dry run passed. Six defects found and fixed, the most serious being `verify` claiming on-chain confirmation when no chain had been consulted. Tamper detection confirmed on three vectors. |
 | 2026-09-05 | Pipeline complete. Search stage, evidence bundle and CLI; verified end to end against live Mastodon data and a local chain. Threshold calibrated on real photos (F-9). README written. |

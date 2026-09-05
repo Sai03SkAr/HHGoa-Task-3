@@ -319,6 +319,9 @@ thought about that is cheap and differentiating:
 
 - **Consent allowlist** — demo restricted to subjects who agreed; the CLI refuses probes
   outside it in demo mode.
+  > **Not implemented.** The README states this plainly under Ethics as something the
+  > project *would not ship without* for real use, rather than pretending it exists. It is
+  > the single largest gap between this demo and anything deployable.
 - **Blur other faces** in scraped images before storing them as evidence (Tier 3).
 - **No raw biometrics on-chain** — salted commitments only.
 - **Right-to-erasure note** — local evidence is deletable; the on-chain anchor is a hash,

@@ -387,7 +387,7 @@ recursive_mutex lock failed: Invalid argument
 make: *** [test] Abort trap: 6
 ```
 
-All 144 tests had already printed as passing; the abort happened at interpreter
+All 148 tests had already printed as passing; the abort happened at interpreter
 teardown. Re-running immediately succeeded, and **8 consecutive runs afterwards were
 clean** — so roughly 1 occurrence in ~17 runs.
 
@@ -406,3 +406,55 @@ model-loading tests in a separate pytest process (`-p no:cacheprovider`, or `--f
 > `pytest -q 2>&1 | tail -2` and grepped for "144 passed". `tail -2` returns the progress
 > bar, not the summary line, so it reported 6/6 failures when nothing had failed. Check
 > the process exit code instead.
+
+---
+
+## F-15 — The testnet code path is verified without spending funds ✅
+
+A gap worth naming: everything up to here exercised the **local** chain, where the node
+holds unlocked accounts and transactions go through `transact()`. A public network has no
+unlocked accounts, so it takes an entirely different path —
+`build_transaction` → sign → `send_raw_transaction`. That path had never been run. If a
+funded wallet had been handed over and it failed, the failure would have surfaced at the
+worst possible moment.
+
+### Connectivity and POA middleware
+
+```
+amoy           OK  chain_id=80002     balance=0.0
+sepolia        OK  chain_id=11155111  balance=0.0
+base-sepolia   OK  chain_id=84532     balance=0.0
+```
+
+All three reachable, and Amoy's proof-of-authority `extraData` is handled — without
+`ExtraDataToPOAMiddleware` that connection raises instead of returning a chain id.
+
+### The signing path itself
+
+`eth-tester` will fund an arbitrary key, so `ChainClient("memory", private_key=...)` now
+exercises exactly what a testnet does, with no node and no faucet. Verified: deploy,
+anchor, `lookup`, and `anchor_from_tx` all succeed under local signing, and the recorded
+`submitter` is the burner address rather than a node default — proving the signature was
+ours. **Four tests now cover it permanently**, including that the nonce advances across
+consecutive signed transactions (a stale nonce would be rejected by a real network) and
+that the chain id is bound into the receipt (EIP-155).
+
+### Gas on Polygon Amoy — checked, no workaround needed
+
+Polygon rejects under-priced transactions, and a common failure is web3 estimating a
+priority fee below the network minimum, leaving a transaction stuck. Queried live:
+
+```
+eth_gasPrice         : 115.83 gwei
+eth_maxPriorityFeePerGas : 115.83 gwei
+```
+
+The RPC reports figures far above the ~25 gwei floor, so web3's automatic estimation
+produces a valid fee and **no hard-coded override was added**. A speculative fee floor
+would have been untestable code guarding a problem that does not exist here.
+
+### What still cannot be verified without funds
+
+A real broadcast: mempool acceptance, block inclusion, and the explorer link resolving.
+Everything up to signing is covered. Residual risk is low but not zero — so deploy to a
+testnet **before** recording, not during.
