@@ -3,19 +3,29 @@
 > **The one file to read to know where things stand.** Update it whenever something
 > lands, breaks, or unblocks. Start at [CONTEXT.md](CONTEXT.md) if you are cold.
 >
-> **Last updated:** 2026-09-05 · **Phase: implementation — stages 1 and 3 done, stage 2 next**
+> **Last updated:** 2026-09-05 · **Phase: pipeline complete and verified end to end.**
+> All five technical requirements are met on the local-chain path.
 
 ---
 
 ## Where to pick up
 
-**Next action:** build Stage 2 (search) — [PLAN.md](PLAN.md) §2. The `SearchProvider`
-interface plus the Mastodon provider, then candidate download and re-embedding so the
-face model adjudicates the match.
+**The pipeline works.** Face → search → adjudicate → anchor → verify, with the tamper test
+going red and `verify --tx` reconstructing from a bare transaction hash. Both the match
+and no-match paths are verified against live data (F-10, F-11).
 
-After that: wire the CLI end to end, then the README.
+**Next actions, in order:**
 
-**68 tests pass** (`.venv/bin/python -m pytest tests/`). Fast subset: `-m "not slow"`.
+1. **B-1 — the demo subject.** The only blocker on a *personal* demo. See
+   [docs/USER_ACTIONS.md](docs/USER_ACTIONS.md) A-1. Until then the pipeline demonstrates
+   correctly against any public account.
+2. **B-2 — testnet funding**, if a live explorer link is wanted. Optional: the local chain
+   is fully compliant.
+3. **Rehearse and record** — shot list in [PLAN.md](PLAN.md) §7. `make prewarm` first.
+4. **Fresh-clone dry run** — the submission checklist demands it and there are no
+   resubmissions.
+
+**138 tests pass** (129 fast + 9 model-loading). `make test-fast` skips the model.
 
 ---
 
@@ -24,10 +34,10 @@ After that: wire the CLI end to end, then the README.
 | # | Requirement | Status | Notes |
 |---|---|---|---|
 | 1 | Face identification | ✅ **done** | `src/face/encoder.py` — detect, multi-face policy, quality gate with reasons, 512-d embed. 9 tests |
-| 2 | Social media / web search | ⬜ **next** | Approach redesigned — the IDEAS.md ladder is not buildable (F-4). Mastodon path verified (F-3) |
+| 2 | Social media / web search | ✅ **done** | `src/search/` — provider ladder, Mastodon (zero-key), hashed search trail, and the closed loop where our encoder adjudicates. Verified live on both match and no-match (F-10, F-11) |
 | 3 | Blockchain verification | ✅ **done** | `contracts/EvidenceRegistry.sol` + `src/chain/registry.py` — compile, deploy, anchor, verify, recover-from-tx. 15 tests, all in-process |
 | 4 | No website | ✅ n/a | Explicitly not required |
-| 5 | GitHub repo + README | 🟡 partial | Repo initialised, remote wired, Task 1/2 excluded, first commit made. **README not written** — it is the graded deliverable and comes last |
+| 5 | GitHub repo + README | ✅ **done** | README covers all four required sections: what it does · how to run it · which blockchain · known limitations |
 | — | Evidence core | ✅ **done** | `src/evidence/` — canonical JSON + Merkle with domain separation. 40 tests |
 | — | Screen recording | ⬜ not started | Shot list ready in [PLAN.md](PLAN.md) §7 |
 
@@ -66,9 +76,12 @@ After that: wire the CLI end to end, then the README.
 
 ## Blockers — these need the user
 
-### B-1 · Demo subject — *blocks Stage 2 end to end* 🔴
+### B-1 · Demo subject — *blocks only a personal demo* 🟡
 
-The pipeline can only find a match if the probe face genuinely appears in a public post.
+The pipeline can only find a match **of you specifically** if your face appears in a public
+post. It is otherwise fully working — verified against a public account in F-11, where it
+correctly matched the account owner at 0.76 and rejected a different person in the same
+account's photos at 0.07.
 
 **Recommendation:** the user posts their own photo publicly (Mastodon works and needs no
 key), then probes with a live webcam capture. One move gives a real social media post, a
@@ -130,5 +143,6 @@ searches/month. Skip unless a second visible rung on the ladder is wanted for th
 
 | Date | Entry |
 |---|---|
+| 2026-09-05 | Pipeline complete. Search stage, evidence bundle and CLI built; verified end to end against live Mastodon data and a local chain — match, no-match, verify-from-tx, and the tamper cycle (PASS → FAIL → PASS). Threshold calibrated on real photos (F-9). README written. 138 tests. |
 | 2026-09-05 | Implementation began. Evidence core (canonical + Merkle), Stage 1 (face), Stage 3 (chain + contract) all built and tested — 68 tests green. Toolchain collapsed to pure Python (D-014, supersedes D-005). Two real bugs caught by tests: numpy scalars leaking into evidence (would have failed at hash time) and a multi-face policy comparing areas where it meant widths. First commit. |
 | 2026-09-05 | Analysis phase. Read task + IDEAS.md; fact-checked IDEAS.md (Bing retired, both RPCs dead, SerpAPI upload limitation); validated InsightFace + cosine thresholds; found Mastodon as a zero-key search path; initialised repo with Task 1/2 excluded; wrote the doc set. No implementation. |

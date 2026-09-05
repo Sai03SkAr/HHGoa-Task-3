@@ -1,7 +1,7 @@
 {
   "name": "hhgoa-task3",
   "version": "1.0.0",
-  "description": "",
+  "description": "Local Hardhat node only - the pipeline itself is pure Python. See docs/DECISIONS.md D-014.",
   "main": "index.js",
   "directories": {
     "doc": "docs",
@@ -17,7 +17,7 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
+  "type": "module",
   "bugs": {
     "url": "https://github.com/Sai03SkAr/HHGoa-Task-3/issues"
   },

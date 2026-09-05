@@ -24,8 +24,11 @@ artifacts/
 cache/
 typechain-types/
 
-# Run outputs (evidence bundles are reproducible, not source)
+# Run outputs (evidence bundles are reproducible, not source) and the search
+# response cache. Both hold third parties' photos and post data pulled off
+# public timelines - reproducible, and not ours to redistribute.
 runs/
+.cache/
 
 # Models
 *.onnx

@@ -201,3 +201,112 @@ supply a persistent local node (`npx hardhat node` on `127.0.0.1:8545`) for that
 **Foundry does not install here.** `foundryup` places its own launcher but then fetches
 no binaries; `anvil` never appears. Abandoned — `eth-tester` covers tests and Hardhat
 covers persistence.
+
+---
+
+## F-9 — Threshold calibrated on real social media photos ✅ *(closes the F-2 gap)*
+
+F-2 measured *same image re-encoded* vs *different person* and explicitly flagged the
+untested regime: **same person, different photo**, which is what the demo actually runs
+in. That gap is now closed with live data.
+
+Method: pulled every public post from one Mastodon account, embedded every face found,
+and split the pairwise similarities into *same post* (near-duplicates) and **cross post**
+(genuinely different photos — different day, lighting, pose, framing).
+
+```
+95 faces across 37 distinct posts
+
+SAME post : n=  82  min=-0.070  p10=+0.561  median=+0.779  p90=+0.905  max=+0.974
+CROSS post: n=4383  min=-0.120  p10=+0.152  median=+0.698  p90=+0.775  max=+0.879
+
+cross-post pairs >= 0.30 : 3846/4383 = 87.7%
+cross-post pairs >= 0.40 : 3842/4383 = 87.7%
+cross-post pairs >= 0.45 : 3834/4383 = 87.5%
+cross-post pairs >= 0.50 : 3797/4383 = 86.6%
+cross-post pairs >= 0.60 : 3606/4383 = 82.3%
+```
+
+**Same person, different photo has a median of 0.698** — comfortably above the 0.45 bar,
+and far above the −0.044 measured for two different people (F-2).
+
+**The threshold sits in an empty valley, which is the real result.** Moving it from 0.30
+to 0.50 changes the outcome for only **1.1%** of pairs (3846 → 3797). The distribution is
+bimodal — one mode high (the account owner, ~0.6–0.88) and one low (other people who
+appear in their photos, ~0.15) — with very little mass in between. A threshold anywhere
+in 0.30–0.50 behaves almost identically, which means 0.45 is **not a knife edge**: small
+misjudgements in choosing it do not flip results.
+
+That is the honest justification for the number, and it is stronger than quoting a
+canonical ArcFace figure. [DECISIONS.md](DECISIONS.md) D-011 is upgraded from provisional
+to firm on this evidence.
+
+**Caveats worth stating in the README rather than hiding.** One account, one apparent
+ethnicity, favourable lighting; this is calibration, not a benchmark. The ~12% of
+cross-post pairs below the bar are mostly *other people* in that account's photos, which
+is the correct outcome, but they were not hand-labelled — so treat 87.5% as a rough
+recall figure, not a measured one.
+
+---
+
+## F-10 — The closed loop runs end to end against live data ✅
+
+Searched Mastodon for `#portrait`, downloaded every image from the returned posts,
+re-embedded each with the same encoder that read the probe, and scored them:
+
+```
+search: mastodon returned 6 candidates
+  skip   …/117/217/24…  (NoFaceFound)
+         cosine=0.1113  …
+         cosine=0.1057  …
+  skip   …/117/217/12…  (NoFaceFound)
+         cosine=-0.0397 …
+
+NO MATCH  best cosine=0.1113 < 0.45 (4/8 candidate images comparable)
+```
+
+The probe was a portrait of someone who is **not** in those posts, and the pipeline says
+so — with the full score table, and with a recorded reason for each of the four images
+that yielded no face. A system that can only ever report success proves nothing; this one
+is falsifiable, and that is the property requirement 2 is really asking about.
+
+---
+
+## F-11 — The positive path works, and discriminates ✅
+
+Everything up to here proved the pipeline could correctly report **no match**. This
+proves it finds a real one, and — more importantly — that it tells people apart.
+
+Probe: a face taken from one public post. Query: that account's other public posts.
+
+```
+0.9995  irene@troet.cafe  (the probe's own source photo)
+0.7632  irene@troet.cafe  https://troet.cafe/@irene/117163894713098683
+0.7607  irene@troet.cafe  https://troet.cafe/@irene/117065046214505725
+0.7603  irene@troet.cafe  https://troet.cafe/@irene/117163894713098683
+0.0668  irene@troet.cafe  (a DIFFERENT person appearing in the same account's photos)
+     -                    no face detected in image  (x2)
+
+MATCH  cosine=0.9995 >= 0.45  (10/12 candidate images comparable)
+```
+
+**The 0.0668 row is the result that matters.** Another person appears in the same
+account's own photos and is correctly rejected. A pipeline that simply returned whatever
+the search gave back would have accepted them. The face model is doing real work, which
+is precisely what requirement 2 is testing.
+
+The 0.76 cluster is *same person, different photo* — the hard regime — sitting far above
+the 0.45 bar and consistent with the median of 0.698 measured independently in F-9.
+
+`verify --run` then passed on this bundle: root reproduced, all 16 Merkle proofs verified,
+probe image and page HTML hashes re-checked against the files on disk.
+
+### Runtime
+
+**16.4 s** end to end for 3 posts / 12 candidate images, including model load, search,
+12 downloads, 12 embeds, page scrape, Merkle build and the anchoring transaction.
+
+A run at `--limit 12` did **not** finish in 7 minutes: cost is dominated by downloading
+full-resolution originals, which vary enormously in size. `--limit` and `--max-images`
+are therefore the demo's runtime levers, and the defaults (10 and 3) are set for a
+recording rather than for exhaustiveness. **Do not raise them mid-demo.**

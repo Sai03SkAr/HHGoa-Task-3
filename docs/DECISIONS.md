@@ -145,15 +145,21 @@ the home repo by accident is the failure mode this guards against.
 
 ---
 
-### D-011 — Threshold 0.45, stated and recorded · **provisional**
+### D-011 — Threshold 0.45, stated and recorded · **firm** *(upgraded on F-9)*
 
 **Why.** Measured separation is enormous — 0.975+ for the same person through a web
 round-trip vs −0.044 for different people (F-2) — so 0.45 errs conservative.
 
-**Why still provisional.** That measurement does not cover *same person, different
-photo*, which is the regime the demo actually runs in and which typically lands ~0.5–0.7
-for ArcFace. **Re-validate with real webcam probes before locking it**, and record the
-achieved score in every bundle so the decision stays auditable either way.
+**Now confirmed on the regime that matters.** F-9 measured *same person, different
+photo* on real Mastodon posts: **median 0.698**, against −0.044 for different people.
+
+**The decisive point is not the median but the valley.** Moving the threshold from 0.30
+to 0.50 changes the verdict for only **1.1%** of pairs — the distribution is bimodal with
+almost no mass in between. So 0.45 is not a knife edge, and the exact value is not
+load-bearing. That is a much better answer than quoting a canonical ArcFace number.
+
+The achieved score is recorded in every bundle regardless, so the decision stays
+auditable either way.
 
 ---
 

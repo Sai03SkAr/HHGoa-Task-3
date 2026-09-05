@@ -155,7 +155,7 @@ class ChainClient:
             if not self.w3.is_connected():
                 raise ChainError(
                     f"cannot reach {self.net.name} at {url}. "
-                    + ("Is a local node running? Try: anvil" if network == "local"
+                    + ("Start one with:  npx hardhat node" if network == "local"
                        else "Check your connection or set RPC_URL.")
                 )
             if private_key:
