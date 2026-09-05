@@ -1,0 +1,203 @@
+# FINDINGS — measured evidence
+
+> **Rule for this file: nothing goes in here that was not actually run and observed.**
+> Every entry carries the command and the real output, so nobody re-does the work and
+> nobody mistakes a guess for a result. Assumptions belong in
+> [../PLAN.md](../PLAN.md); decisions belong in [DECISIONS.md](DECISIONS.md).
+
+All measured **2026-09-05** on macOS 26.6, arm64, unless noted.
+
+---
+
+## F-1 — InsightFace `buffalo_l` installs and runs on Python 3.12 / arm64 ✅
+
+Installed with `uv pip install insightface onnxruntime opencv-python-headless numpy`
+into a 3.12 venv. Resolved clean, **no compiler toolchain needed**.
+
+Notable resolved versions: `onnxruntime 1.29.0`, `onnx 1.22.0`, `numpy 2.5.2`,
+`opencv-python 5.0.0.93`, `scikit-image 0.26.0`.
+
+| Measurement | Value |
+|---|---|
+| One-time model download (`buffalo_l.zip`) | **281 MB**, ~165 s on this connection |
+| **Warm** model load (`FaceAnalysis.prepare`) | **0.4 s** |
+| Detect + embed, 3356×2687 image | **~0.11 s** |
+| Embedding | 512-d, L2-normalised (`normed_embedding`) |
+
+Model cache lands in `~/.insightface/models/buffalo_l`. The first run of a fresh clone
+pays the 281 MB download — **warn about this in the README**, and do not let it happen
+for the first time during the recording.
+
+### Gotcha
+
+`insightface/utils/face_align.py` emits a `FutureWarning` against scikit-image 0.26
+(`estimate` is deprecated). Harmless today, but it will clutter demo output — suppress
+the warning or pin scikit-image.
+
+---
+
+## F-2 — The cosine threshold holds with an enormous margin ✅
+
+The single most load-bearing assumption in the design. Two real portraits
+(different people), plus derived variants of one simulating a web round-trip.
+
+```
+=== identity A (Obama official portrait, 3356x2687) ===
+  A original             faces=1 det=0.903 face_px=630 blur=  120.5
+  A jpeg45_3xdown        faces=1 det=0.901 face_px=210 blur=  285.7
+  A cropped              faces=1 det=0.819 face_px=629 blur=  152.6
+  A brightened           faces=1 det=0.904 face_px=628 blur=  118.7
+
+=== identity B (Biden official portrait, 3000x2400) ===
+  B original             faces=1 det=0.829 face_px=703 blur=  245.4
+
+=== cosine similarity ===
+  SAME person, web round-trip (expect HIGH):
+    A vs A/jpeg45_3xdown    = +0.9749
+    A vs A/cropped          = +0.9753
+    A vs A/brightened       = +0.9909
+  DIFFERENT people (expect LOW):
+    A vs B                  = -0.0438
+```
+
+**Reading:** aggressive recompression (3× downscale, JPEG q45), cropping and a brightness
+shift barely move the embedding — 0.975+ throughout — while two different people sit at
+essentially zero. A **0.45 threshold is very conservative**, which is the right
+direction to err.
+
+### The gap this does NOT close — do not overclaim
+
+This covers *same image re-encoded* vs *different person*. It does **not** measure the
+genuinely hard regime: **same person, different photo, different lighting/pose/age**,
+which for ArcFace typically lands ~0.5–0.7. Validate that with real webcam probes before
+fixing the threshold, and state the limitation honestly in the README.
+
+Also worth noting: the blur (Laplacian variance) numbers do **not** order the way naive
+intuition suggests — the downscaled+recompressed variant scored *higher* (285.7) than the
+original (120.5), because downscaling sharpens edges per-pixel. So a blur gate must be
+applied to the **native-resolution probe**, not to a resized copy, or it will pass
+exactly the images it should reject.
+
+---
+
+## F-3 — Mastodon's public API is a genuine zero-auth social media search ✅
+
+```bash
+curl -s -H "User-Agent: HHGoaSpike/0.1" \
+  "https://mastodon.social/api/v1/timelines/tag/portrait?limit=3&only_media=true"
+```
+
+Returned live posts — timestamped **the same day the probe was run** — each with:
+
+```
+post : https://pixelfed.social/p/neotux/1001746808799439975
+  by  : neotux@pixelfed.social | 2026-09-05T07:04:10.000Z
+  media: image https://files.mastodon.social/cache/media_attachments/files/117/...
+```
+
+**No API key. No quota. No anti-bot.** Real permalinks, real authors, real timestamps,
+directly downloadable image attachments — and the federation means results span many
+instances (pixelfed, chaos.social) rather than one silo.
+
+This is what makes the whole Stage 2 replacement viable, and it is un-fakeable on camera:
+the candidate set changes minute to minute, so it visibly cannot be hardcoded.
+
+---
+
+## F-4 — Search provider landscape ⚠️
+
+| Provider | State | Evidence |
+|---|---|---|
+| **Bing Visual Search** | ❌ **retired Aug 11, 2025** | Endpoint 404s. Microsoft retired *all* Bing Search APIs; migration path is "Grounding with Bing Search" inside Azure AI Agents, which is not a reverse-image API. |
+| **SerpAPI Google Lens** | ⚠️ alive, keyed | `https://serpapi.com/search` → 401 (alive, wants a key). Free tier **100 searches/month**; paid from **$75/mo**. |
+| SerpAPI image input | ⚠️ **no upload endpoint** | Takes `url` or `image_id` only. SerpApi's own guide routes local files through **S3 to obtain a public URL**. Reverse-searching a webcam probe therefore **requires publishing the probe face publicly** — the core privacy conflict driving [DECISIONS.md](DECISIONS.md) D-003. |
+| **Yandex** | ⚠️ scraping only | `yandex.com/images` → 200 HTML. No official API; aggressive anti-bot. Unreliable for a live demo. |
+| **Bluesky** public API | ❌ 403 from here | `public.api.bsky.app/xrpc/app.bsky.feed.searchPosts` → 403 with and without a custom UA. Keyed fallback only. |
+| **TinEye** | ❌ ~$200/mo | Out of budget. |
+| **Mastodon** | ✅ **works, free** | See F-3. |
+
+---
+
+## F-5 — Chain endpoints ✅
+
+`eth_chainId` over JSON-RPC POST:
+
+| Endpoint | Result |
+|---|---|
+| `https://ethereum-sepolia-rpc.publicnode.com` | ✅ `0xaa36a7` (11155111) |
+| `https://polygon-amoy-bor-rpc.publicnode.com` | ✅ `0x13882` (80002) |
+| `https://sepolia.base.org` | ✅ `0x14a34` (84532) |
+| `https://rpc.sepolia.org` | ❌ **404** — the endpoint named in IDEAS.md is dead |
+| `https://rpc-amoy.polygon.technology` | ❌ **timeout** — also named in IDEAS.md, also unusable |
+
+Both RPC URLs suggested by IDEAS.md fail. Use the publicnode ones.
+
+---
+
+## F-6 — Python stack ✅
+
+`uv pip install web3 eth-account playwright beautifulsoup4 httpx typer rich` resolved
+clean on 3.12.
+
+| Package | Version | Note |
+|---|---|---|
+| `web3` | **8.0.0** | ⚠️ **Major version.** The API differs from the 6.x used in nearly every tutorial and blog post. Do not paste 6.x snippets — check the v8 docs. |
+| `httpx` | 0.28.1 | |
+| `beautifulsoup4` | 4.15.0 | |
+
+**Not yet verified:** `playwright install chromium` (the browser binary download) has not
+been run, and no chain round-trip has been executed against a local node. Both are open —
+see [../PROGRESS.md](../PROGRESS.md).
+
+---
+
+## F-7 — Environment / tooling gaps ✅
+
+| Tool | State |
+|---|---|
+| Python 3.14.4 default; **3.12.12 available** | Use 3.12 — 3.14 is too new for this ML stack |
+| `uv` 0.11.8, Node 22.20.0, npm 11.8.0, git 2.50.1 | ✅ present |
+| `gh` CLI | ❌ absent (repo was created in the browser, so not needed) |
+| Foundry (`anvil`/`forge`/`cast`) | ❌ absent → Hardhat instead |
+| Docker, IPFS (kubo) | ❌ absent |
+| Disk free | ~41 GB |
+
+### Wikimedia fetch gotcha (cost real time)
+
+`upload.wikimedia.org` now **rejects arbitrary thumbnail widths** — a `480px-` or
+`640px-` thumb URL returns **HTTP 400** with `Use thumbnail sizes listed on
+https://w.wiki/GHai`, and the body is HTML, so a naive `curl -o file.jpg` silently writes
+an HTML file with a `.jpg` name. Fetch the **original** path
+(`/wikipedia/commons/<a>/<ab>/<Name>.jpg`) instead.
+
+General lesson for the scraper: **always sniff the downloaded bytes** (magic number /
+`file`) rather than trusting the extension or the HTTP status alone.
+
+---
+
+## F-8 — The whole chain stage runs in pure Python ✅
+
+`py-solc-x` fetched **solc 0.8.24** and compiled `EvidenceRegistry.sol`; `web3` +
+`eth-tester` then deployed and exercised it entirely **in-process** — no node, no faucet,
+no network:
+
+```
+compiled OK, abi entries: 6 | bytecode 3290 bytes
+connected: True
+deployed at: 0xF2E2…395b   gas: 757035
+anchored                   gas:  93815   block: 2
+verify(root)          -> True
+verify(unknown root)  -> False
+Anchored event root matches: True
+```
+
+**Consequence:** no Node toolchain is needed to build or test this project — see
+[DECISIONS.md](DECISIONS.md) D-014. Gas numbers above feed the cost table.
+
+**The one limitation:** `eth-tester` state dies with the process, so it cannot back a
+demo where `run` and `verify` are separate commands. Hardhat **3.15.0** is installed to
+supply a persistent local node (`npx hardhat node` on `127.0.0.1:8545`) for that case.
+
+**Foundry does not install here.** `foundryup` places its own launcher but then fetches
+no binaries; `anvil` never appears. Abandoned — `eth-tester` covers tests and Hardhat
+covers persistence.

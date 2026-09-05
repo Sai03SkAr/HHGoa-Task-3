@@ -1,0 +1,24 @@
+[project]
+name = "faceanchor"
+version = "0.1.0"
+description = "Face identification -> social media search -> blockchain anchoring. HH Goa 2026 Task 3."
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q --tb=short"
+filterwarnings = [
+    # insightface calls a scikit-image API deprecated in 0.26; fires once per
+    # aligned face and is not actionable from here.
+    "ignore:.*is deprecated since version.*:FutureWarning",
+]
+markers = [
+    "slow: loads real models",
+    "network: requires network access",
+    "chain: requires a running local chain",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]

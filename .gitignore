@@ -1,0 +1,35 @@
+# ---------------------------------------------------------------------------
+# Reference material only - the Task 1 and Task 2 submissions live here for
+# convenience while building Task 3. They must NEVER be pushed to this repo.
+# ---------------------------------------------------------------------------
+HHGoa Task1 /
+HHGoa Task2/
+*.pdf
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# Node / Hardhat
+node_modules/
+artifacts/
+cache/
+typechain-types/
+
+# Run outputs (evidence bundles are reproducible, not source)
+runs/
+
+# Models
+*.onnx
+.insightface/
+
+# macOS
+.DS_Store
