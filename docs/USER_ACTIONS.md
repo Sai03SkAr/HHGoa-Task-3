@@ -1,89 +1,225 @@
-# USER_ACTIONS — the things only Sai can do
+# USER_ACTIONS — your step-by-step guide to finishing
 
-> Everything here is **needed for the final recording, not for development.** Building
-> proceeds fully without any of it. Do these in spare moments; nothing is blocked meanwhile.
+> Everything the code can do is done. What is left needs a human. This file is the
+> complete list, in order, in plain language.
 >
-> **Last updated:** 2026-09-05
+> **Last updated:** 2026-09-05 · **Deadline: Sept 7, 2026, 11:59 PM · no resubmissions**
 
 ---
 
-## A-1 · Post a photo of yourself publicly  — *do this first, it has the longest tail*
+## The whole plan at a glance
 
-**Why it's needed.** The pipeline finds a match only if your face genuinely appears in a
-public post. This is the one thing that cannot be faked or worked around — and doing it
-yourself is also what makes the consent story clean.
+| Step | What | How long | Who |
+|---|---|---|---|
+| **1** | Post a photo of yourself on Mastodon | 5 min | you |
+| **2** | Send me the hashtag + handle; I wire it up and test | 10 min | me |
+| **3** | *(optional)* Fund a testnet wallet for a live explorer link | 15 min | you |
+| **4** | I prepare and rehearse the exact demo | 15 min | me |
+| **5** | Record your screen | 10 min | you |
+| **6** | Upload the video, submit the form | 10 min | you |
 
-**Why I can't do it.** Posting content on your behalf and creating accounts are both off
-limits for me, and I don't have your photo.
-
-### Steps (~5 minutes)
-
-1. Go to **https://mastodon.social** and sign up. Free, no phone number required. Any
-   instance works, but `mastodon.social` is the one the pipeline queries by default.
-2. Make sure the account is **public**, not locked. Settings → Profile → leave
-   *"Require follow requests"* **unchecked**.
-3. Post **1–3 clear photos of your face**. Good light, face reasonably large in frame,
-   looking at the camera. Ordinary selfies are fine — this should look like a normal post.
-4. **Add a distinctive hashtag** to each post, something nobody else is using. For example
-   `#hhgoa2026sai`. Tell me the exact tag.
-5. Confirm it's publicly visible: open the post URL in a **private/incognito window**. If
-   it loads while logged out, we're good.
-
-### What to send me
-
-- the hashtag you used
-- your handle (e.g. `@yourname@mastodon.social`)
-- the post URL(s)
-
-### Why a hashtag isn't "hardcoding the result"
-
-Choosing a *search query* is how search works — every search engine takes one. What must
-not be hardcoded is the **result**. The pipeline fetches whatever posts that tag currently
-returns, downloads their images, and the face model decides which (if any) matches, with
-the cosine score recorded either way. Point the same query at a tag full of other people's
-faces and it correctly finds nothing. That's the difference, and it's visible on camera.
+**You can do step 1 right now.** Nothing else is waiting on anything else.
 
 ---
 
-## A-2 · Fund a testnet wallet — *only if we want a live explorer link*
+## STEP 1 · Post a photo of yourself on Mastodon
 
-**Why it's needed.** Only for the recorded demo. A local Hardhat chain satisfies the task
-requirement on its own ("any blockchain may be used — public testnet, mainnet, or a
-local/simulated chain"). A live explorer link is a credibility upgrade, not compliance.
+**Why:** the pipeline searches real social media and matches faces. To demo it finding
+**you**, a photo of your face has to actually be in a public post. This is the one thing
+no code can do.
 
-**Why I can't do it.** Faucets require captchas and social-auth sign-ins.
+**Why it isn't cheating:** we choose a *search query*, exactly like typing something into
+Google. What we never choose is the **result**. The pipeline downloads whatever posts that
+query returns right now, runs every image through the face model, and the score decides.
+Point it at a tag full of strangers and it correctly finds nobody.
 
-### Steps
+### 1.1 — Make the account
 
-1. I'll generate a **burner wallet** locally and print the address. It will hold only
-   worthless testnet funds and its key stays in gitignored `.env`. **Never put real funds
-   in it.**
-2. Take that address to a **Polygon Amoy** faucet:
-   - https://faucet.polygon.technology (select *Amoy*) — usually the easiest
-   - https://www.alchemy.com/faucets/polygon-amoy — needs a free Alchemy account
-3. Request test POL. You need only a tiny amount — a single anchor transaction costs a
-   fraction of a cent equivalent.
-4. Tell me when it lands and I'll deploy + anchor against Amoy.
+1. Go to **https://mastodon.social**
+2. Click **Create account**. It is free, and no phone number is needed.
+3. Pick any username. Confirm your email.
 
-**If faucets give you trouble, skip it.** The local chain path is fully compliant and I'll
-build that regardless. Do not spend more than ~20 minutes fighting a faucet.
+> ⚠️ **Use `mastodon.social` specifically, not another Mastodon server.** Our search asks
+> `mastodon.social` what it knows about. A post made on a different server has to
+> *federate* across before it shows up there, which can take time or not happen at all.
+> Posting directly on `mastodon.social` means it is findable immediately.
+
+### 1.2 — Make sure your account is public
+
+1. **Settings → Profile**
+2. Make sure **"Require follow requests"** is **UNCHECKED**.
+
+If that box is ticked, your posts are private and nothing can find them.
+
+### 1.3 — Post your photos
+
+Post **2 or 3 separate posts**, each with a clear photo of your face.
+
+Good photos:
+- your face is large in the frame, not a tiny figure in a landscape
+- decent light, looking roughly at the camera
+- ordinary selfies are perfect — this should look like a normal post
+
+Avoid: sunglasses, heavy shadow, side profile, or a group photo where several faces are
+the same size.
+
+> **Why 2 or 3 posts and not one?** The demo is far more convincing when the probe photo
+> is a *different* photo from the ones it finds. Matching a photo to itself proves very
+> little; matching you across two different photos proves the face model is doing real work.
+
+### 1.4 — Add a unique hashtag to every post
+
+Put a hashtag on each post that nobody else on earth is using. For example:
+
+```
+#saihhgoa2026
+```
+
+Check it is unused: open `https://mastodon.social/tags/saihhgoa2026` — it should show only
+your posts.
+
+### 1.5 — Confirm the posts are really public
+
+Open one of your post links in a **private / incognito browser window**. If it loads while
+you are logged out, it is public. If it asks you to log in, go back to 1.2.
+
+### 1.6 — Keep one photo aside as the probe
+
+Take **one more photo of yourself that you do NOT post** — a fresh selfie from your laptop
+webcam is ideal. That becomes the "face scan" the pipeline starts from.
+
+Save it somewhere easy, e.g. `~/Desktop/probe.jpg`.
+
+> This is what makes the demo airtight: you scan a face that exists nowhere online, and
+> the pipeline still finds your public posts.
+
+### 1.7 — Send me these three things
+
+```
+hashtag :  #saihhgoa2026
+handle  :  @yourname@mastodon.social
+probe   :  ~/Desktop/probe.jpg
+```
 
 ---
 
-## A-3 · Record the screen — *at the very end*
+## STEP 2 · I wire it up *(me, ~10 min)*
 
-Full shot list is in [../PLAN.md](../PLAN.md) §7. I'll give you a rehearsed script and
-pre-warm every cache first, so nothing downloads or rate-limits mid-take.
-
-Two things to know now:
-- The first-ever run downloads a **281 MB** face model. We pre-warm this before recording.
-- Have the wall clock / today's date visible on screen at the start.
+I will run the real pipeline against your hashtag and handle, confirm it finds you, check
+the score is comfortably above the threshold, and fix anything that comes up. Then I will
+tell you the exact commands for the recording.
 
 ---
 
-## A-4 · Submit
+## STEP 3 · *(Optional)* Fund a testnet wallet
 
-- Repo: https://github.com/Sai03SkAr/HHGoa-Task-3 (must be **public**)
-- Form: https://forms.gle/oZbQGuwiNeHVcHWo8
-- Deadline **Sept 7, 2026, 11:59 PM**. **No resubmissions** — submit only when final.
-- Test the recording link in a **private window** before submitting.
+**Skip this if you want to finish faster.** The task explicitly allows a local chain:
+
+> *"Any blockchain may be used — public testnet, mainnet, or a local/simulated chain."*
+
+A public testnet only adds a clickable explorer link in the video. It is a nice touch, not
+a requirement.
+
+### If you want to do it
+
+1. I generate a throwaway wallet:
+   ```bash
+   .venv/bin/python -m src.cli wallet-new
+   ```
+   This prints an **address** and a **private key**. The key goes in `.env`, which is
+   gitignored and never uploaded.
+
+   > ⚠️ This wallet is for worthless test coins only. **Never send real money to it.**
+
+2. Take the **address** to a Polygon Amoy faucet:
+   - https://faucet.polygon.technology (choose **Amoy**)
+   - or https://www.alchemy.com/faucets/polygon-amoy (needs a free account)
+
+3. Ask for test POL. You need a tiny amount — one transaction costs a fraction of a cent.
+
+4. Tell me when it arrives. I deploy to Amoy and put the live explorer link in the README.
+
+**If a faucet gives you trouble, stop after 20 minutes and skip it.** It is genuinely
+optional.
+
+---
+
+## STEP 4 · I rehearse the demo *(me, ~15 min)*
+
+I will pre-download everything so nothing loads during your recording, run the whole thing
+once end to end, and hand you a script with the exact commands in order.
+
+---
+
+## STEP 5 · Record your screen
+
+Plain screen capture. **No editing needed.** Aim for 5–7 minutes.
+
+- **Mac:** press `Cmd + Shift + 5` → **Record Entire Screen**. Turn the microphone on if
+  you want to narrate — talking through it helps, but it is not required.
+
+### Layout
+
+Terminal on the **left**, browser on the **right**, both visible at once.
+
+### What to show, in order
+
+1. **Today's date on screen.** Open a clock or a calendar for a second. This timestamps
+   everything that follows.
+2. **Take the probe photo live from your webcam**, right there on camera. This single act
+   answers the "did you pre-pick the result?" question better than any explanation.
+3. **Run the pipeline.** Narrate what appears: the quality gate, the face size, the search.
+4. **Scroll the raw search response** in the terminal — the actual JSON that came back from
+   Mastodon. This is the proof it is a real live search.
+5. **Open the found post in the browser**, next to the image the code downloaded. Same
+   photo, same person.
+6. **Point at the cosine score** and the threshold. Say what it means: "0.76, and the bar
+   is 0.45, so this is a match."
+7. **Show the Merkle root and the transaction hash.**
+8. **Open the transaction in the block explorer** *(only if you did Step 3)*.
+9. **Run `verify`** → green **PASS**.
+10. **The tamper test.** Change one digit in `evidence.json`, run `verify` again → red
+    **FAIL** showing the mismatch. Change it back → **PASS** again.
+
+> **Step 10 is the most important 20 seconds in the whole video.** The task specifically
+> asks you to demonstrate re-verifying against the on-chain record. Do not rush it.
+
+### If something goes wrong mid-recording
+
+- A test crashes with `Abort trap: 6` → just run it again, it is a known rare glitch.
+- A search returns nothing → run it again; the ladder tries other servers.
+- **Do not** raise `--limit` to get more results. It gets very slow. Keep the defaults.
+
+---
+
+## STEP 6 · Submit
+
+1. Upload the video to **YouTube (unlisted)** or **Google Drive**.
+2. **Test the link in a private/incognito window.** If it does not open there, nobody can
+   watch it. This is the single most common submission mistake.
+3. Check the repo is public: https://github.com/Sai03SkAr/HHGoa-Task-3
+4. Submit the form: **https://forms.gle/oZbQGuwiNeHVcHWo8**
+   - GitHub repo link
+   - video link
+
+> **There are no resubmissions.** Only submit when you are happy with it.
+
+---
+
+## Quick answers
+
+**Do I have to do Step 3 (the testnet)?**
+No. The local chain fully satisfies the task. Step 3 only adds a clickable link.
+
+**What if I do not want my face in a public post?**
+Then we demo against a public account instead, which already works. The video would show
+the pipeline correctly identifying someone else's public posts. It is a slightly weaker
+story, but completely valid.
+
+**Can I delete the Mastodon posts afterwards?**
+Yes. Do it after recording. The evidence on your machine is deletable too. What stays on
+the blockchain is only a hash — not your photo, not your face data, and not anything that
+can be turned back into either.
+
+**How long until this is finished?**
+If you do Step 1 now and skip Step 3, realistically about **an hour of your time**.
