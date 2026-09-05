@@ -4,13 +4,34 @@
 > new person) with no memory of this project, read this file top to bottom first, then
 > [PROGRESS.md](PROGRESS.md) for live status and [PLAN.md](PLAN.md) for the build order.
 >
-> Doc map: **CONTEXT.md** (this — the task, constraints, environment) ·
-> [PLAN.md](PLAN.md) (architecture & build order) ·
-> [PROGRESS.md](PROGRESS.md) (what is done, what is next, what is blocked) ·
-> [docs/DECISIONS.md](docs/DECISIONS.md) (why things are the way they are) ·
-> [docs/FINDINGS.md](docs/FINDINGS.md) (measured evidence — do not re-run these spikes)
+> **Doc map** — six files, each with one job:
+>
+> | File | Read it for |
+> |---|---|
+> | **CONTEXT.md** (this) | The task, the constraints, the environment, corrections to IDEAS.md |
+> | [PROGRESS.md](PROGRESS.md) | **What is done, what is left, what is broken.** Start here for status |
+> | [PLAN.md](PLAN.md) | Architecture, scope tiers, build order, the recording shot list |
+> | [docs/DECISIONS.md](docs/DECISIONS.md) | Why things are the way they are — 15 logged decisions |
+> | [docs/FINDINGS.md](docs/FINDINGS.md) | Measured evidence with commands — **do not re-run these spikes** |
+> | [docs/USER_ACTIONS.md](docs/USER_ACTIONS.md) | The steps only a human can do |
+>
+> [README.md](README.md) is the **graded deliverable**, written for a grader rather than
+> for whoever continues the work.
 
-**Last updated:** 2026-09-05 · **Status:** analysis complete, implementation NOT started
+**Last updated:** 2026-09-05 · **Status: BUILT, AUDITED AND PUSHED.** All five technical
+requirements are met and verified on the local-chain path. 144 tests pass. What remains is
+a demo subject, an optional testnet deploy, and the screen recording — see
+[PROGRESS.md](PROGRESS.md).
+
+**Repo:** https://github.com/Sai03SkAr/HHGoa-Task-3 (public) ·
+**Local:** `/Users/saisalelkar/Desktop/HHGoa Task3`
+
+```bash
+make node        # terminal 1: local chain
+make deploy      # terminal 2: prints CONTRACT_ADDRESS -> .env
+make demo PROBE=tests/fixtures/person_a.jpg QUERY='#portrait'
+make verify
+```
 
 ---
 
@@ -195,20 +216,20 @@ Full detail with commands in [docs/FINDINGS.md](docs/FINDINGS.md). Headlines:
 
 ---
 
-## 7. Open questions for the user — these block work
+## 7. What is still open
 
-Tracked with full context in [PROGRESS.md](PROGRESS.md) §Blockers. Summary:
+Full detail in [PROGRESS.md](PROGRESS.md). Nothing is blocked on code.
 
-1. **Which chain for the recorded demo** — local Hardhat only (zero friction, no faucet)
-   vs. a public testnet (needs a funded burner wallet; stronger demo with a live
-   explorer link). Recommendation: **do both**, local as default + testnet for the tape.
-2. **Testnet funds** — if a testnet is used, someone must fund a burner address from a
-   faucet. This is a human action and can be slow; start early.
-3. **The demo subject** — the pipeline can only find a match if the probe face actually
-   appears in a public post. See [PLAN.md](PLAN.md) §2.3; recommendation is for the user
-   to post their own photo publicly, which also settles consent cleanly.
-4. **Whether to buy/obtain a SerpAPI key** — optional; the pipeline is designed to work
-   fully without one.
+1. **Demo subject** — the pipeline needs the probe face to appear in a public post to match
+   *Sai specifically*. It works correctly against any public account today (F-11). Steps in
+   [docs/USER_ACTIONS.md](docs/USER_ACTIONS.md) A-1.
+2. **Testnet deploy** *(optional)* — only for a live explorer link; the local chain is
+   fully compliant. If it happens, fill in the README placeholder under "Which blockchain".
+3. **The screen recording** — shot list in [PLAN.md](PLAN.md) §7. `make prewarm` first.
+
+**Decided, no longer open:** the chain is configurable and the code is chain-agnostic
+(D-013 resolved — local default, testnet by env var), and SerpAPI is **not** used at all
+(D-015).
 
 ---
 

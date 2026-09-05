@@ -200,6 +200,11 @@ make test-fast   # no model load, no network
 **135 fast tests, plus 9 that load the real model.** The chain tests run entirely
 in-process on `eth-tester` — no node, no faucet, no network.
 
+> Very occasionally (once in ~17 runs) the full suite aborts at interpreter teardown with
+> `libc++abi ... recursive_mutex lock failed`, *after* every test has reported passing.
+> It is a native teardown race in onnxruntime/opencv on macOS, not a test failure.
+> Re-run it. Details in `docs/FINDINGS.md` F-14.
+
 ### What a run leaves behind
 
 ```

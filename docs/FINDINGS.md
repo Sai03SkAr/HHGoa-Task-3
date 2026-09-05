@@ -374,3 +374,35 @@ The run continues and the fall-through is printed rather than hidden — which i
 a live demo dies when one endpoint is down, and a ladder that visibly recovers on screen is
 a feature. The instance name is part of the provider name, so it lands in the hashed search
 trail: "which server answered" is itself evidence.
+
+---
+
+## F-14 — Rare native crash at test-suite teardown ⚠️ *(open, not reproducible)*
+
+Observed **once**, on the first `make test` after a fresh `make setup`:
+
+```
+libc++abi: terminating due to uncaught exception of type std::__1::system_error:
+recursive_mutex lock failed: Invalid argument
+make: *** [test] Abort trap: 6
+```
+
+All 144 tests had already printed as passing; the abort happened at interpreter
+teardown. Re-running immediately succeeded, and **8 consecutive runs afterwards were
+clean** — so roughly 1 occurrence in ~17 runs.
+
+**Diagnosis (unconfirmed):** a native teardown race in `onnxruntime`/`opencv` on macOS,
+not in this project's Python. Nothing in the test results was wrong; the process failed to
+exit cleanly after reporting success.
+
+**Workaround:** re-run. It is not a correctness problem — no test failed.
+
+**If it appears during the recording**, just run it again; do not debug it on camera. If
+someone wants to chase it properly, the likely lever is forcing single-threaded
+onnxruntime (`OMP_NUM_THREADS=1`, `session.intra_op_num_threads=1`) or running the
+model-loading tests in a separate pytest process (`-p no:cacheprovider`, or `--forked`).
+
+> **Caution for whoever measures this next:** a first attempt to quantify the rate used
+> `pytest -q 2>&1 | tail -2` and grepped for "144 passed". `tail -2` returns the progress
+> bar, not the summary line, so it reported 6/6 failures when nothing had failed. Check
+> the process exit code instead.
