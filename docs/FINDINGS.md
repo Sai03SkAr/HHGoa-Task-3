@@ -321,7 +321,7 @@ problem found was fixed.
 ### Fresh clone from GitHub
 
 `git clone` into an empty directory → `make setup` → `make test-fast` → **129 passed**,
-then `make test` → **138 passed** in 14.4 s including the model download. The public repo
+then `make test` → **138 passed** in 14.4 s including the model download. (The suite has since grown to 148; 138 is what it was on the day of this measurement.) The public repo
 contains no `HHGoa Task1 /`, no `HHGoa Task2/`, no `.env`, no `runs/`, no `.cache/`.
 
 ### Six real defects found and fixed
